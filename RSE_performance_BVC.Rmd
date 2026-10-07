@@ -1,0 +1,1059 @@
+---
+title: "RSE et Performance Financière — BVC 2014–2023"
+author: "Ait Naoum Fadoua · Master Finance Appliquée · UCA Marrakech"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+    fig_width: 9
+    fig_height: 5
+    fig_caption: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE,
+                      fig.align="center")
+```
+
+```{r packages, include=FALSE}
+pkgs <- c("plm","lmtest","sandwich","car","stargazer",
+          "ggplot2","ggcorrplot","dplyr","tidyr",
+          "knitr","kableExtra","scales","tseries","gridExtra")
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly=TRUE)) install.packages(p)
+  library(p, character.only=TRUE)
+}
+
+COL_BLUE  <- "#1B6CA8"; COL_GREEN <- "#2E8B57"
+COL_RED   <- "#C0392B"; COL_DARK  <- "#2C3E50"
+COL_AMMC  <- "#E74C3C"
+
+theme_rse <- theme_minimal(base_size=12) +
+  theme(plot.title=element_text(face="bold",size=13,color=COL_DARK),
+        plot.subtitle=element_text(color="grey45",size=10),
+        plot.caption=element_text(color="grey55",size=8.5,face="italic"),
+        panel.grid.minor=element_blank(),
+        panel.grid.major=element_line(color="grey90"),
+        plot.background=element_rect(fill="white",color=NA),
+        legend.position="bottom")
+```
+
+```{r load_data}
+# ── Identifiants ───────────────────────────────────────────────────────────
+firms30 <- c(
+  rep("Colorado",10), rep("Cosumar",10), rep("Label Vie",10),
+  rep("LafargeHolcim",10), rep("Lesieur Cristal",10), rep("Managem",10),
+  rep("Maroc Telecom",10), rep("TAQA Morocco",10), rep("Ciments du Maroc",10),
+  rep("Total Maroc",10), rep("Sonasid",10), rep("HPS",10),
+  rep("Sothema",10), rep("Les Eaux Minérales d'Oulmes",10),
+  rep("Douja Prom Addoha",10), rep("Aluminium du Maroc",10),
+  rep("Résidences Dar Saada",10), rep("Dari Couspate",10),
+  rep("Maghreb Oxygen",10), rep("Auto Hall",10), rep("CTM",10),
+  rep("Delta Holding",10), rep("Disway",10), rep("Stokvis Nord Afrique",10),
+  rep("Afric Industries",10), rep("Auto Najma",10), rep("Risma",10),
+  rep("Alliances Darna",10), rep("Unimer",10), rep("Fenie Brossette",10)
+)
+
+sectors30 <- c(
+  rep("Peinture/Industrie",10), rep("Agroalimentaire",10), rep("Distribution",10),
+  rep("Ciment",10), rep("Agroalimentaire",10), rep("Mines",10),
+  rep("Télécoms",10), rep("Énergie",10), rep("Ciment",10),
+  rep("Distribution énergie",10), rep("Sidérurgie",10),
+  rep("Technologie",10), rep("Pharmacie & Santé",10),
+  rep("Agroalimentaire",10), rep("Immobilier",10),
+  rep("Industrie",10), rep("Immobilier",10),
+  rep("Agroalimentaire",10), rep("Industrie",10),
+  rep("Distribution automobile",10), rep("Transport",10),
+  rep("Holding industriel",10), rep("Technologie",10),
+  rep("Distribution équipements",10), rep("Industrie",10),
+  rep("Distribution automobile",10), rep("Hôtellerie",10),
+  rep("Immobilier",10), rep("Agroalimentaire",10),
+  rep("Distribution industrielle",10)
+)
+
+# ── ROA (valeurs exactes corrigées) ───────────────────────────────────────
+ROA_raw <- c(
+  0.0822,0.0916,0.0857,0.0899,0.0680,0.0654,0.0303,0.0511,0.0652,0.0707,
+  0.0796,0.0772,0.0722,0.0863,0.0925,0.0836,0.0835,0.0673,0.0629,0.0728,
+  0.0701,0.0111,0.0160,0.0176,0.0342,0.0366,0.0370,0.0366,0.0399,0.0634,
+  0.0151,0.1661,0.1750,0.0770,0.0909,0.0765,0.0819,0.0735,0.0957,0.0678,
+  0.0769,0.0593,0.0608,0.0587,0.0569,0.0241,0.0421,0.0396,0.0266,0.0004,
+  0.0197,0.0202,0.0275,0.0768,0.0329,-0.1352,-0.0385,0.0510,0.0836,0.0221,
+  0.1277,0.0924,0.0913,0.0910,0.0967,0.0420,0.0853,0.0972,0.0420,0.0934,
+  0.0335,0.0409,0.0435,0.0477,0.0514,0.1545,0.1163,0.0518,0.0578,0.0466,
+  0.1071,0.1381,-0.0202,0.1399,0.1575,0.1729,0.1294,0.2218,0.1888,0.1966,
+  0.0713,0.0655,0.4756,0.4662,0.1261,0.1011,0.0724,0.1174,0.0508,0.0067,
+  0.0318,-0.0157,-0.0170,0.0122,0.0033,-0.0117,-0.0074,0.0277,0.0188,0.0134,
+  0.0815,0.0868,0.0809,0.0638,0.0638,0.0848,0.0713,0.0724,0.0754,0.0618,
+  0.0859,0.1029,0.1223,0.1159,0.1545,0.1414,0.1425,0.1594,0.1395,0.1042,
+  0.0805,0.0908,0.1042,0.0993,0.0077,0.0053,-0.0160,0.0177,0.0226,0.0213,
+  0.0315,0.0166,0.0411,0.0265,0.0138,0.0134,-0.0364,-0.0044,0.0018,0.0085,
+  0.0556,0.0455,0.0101,0.0382,0.0499,0.0331,-0.0009,0.0154,0.0033,0.0060,
+  0.0509,0.0558,0.0530,0.0393,0.0377,0.0381,-0.0158,-0.0021,-0.0082,-0.0082,
+  0.1107,0.1366,0.1857,0.1876,0.1628,0.1260,0.0811,0.1006,0.0322,0.0475,
+  0.0212,0.0147,0.0222,0.0290,0.0292,0.0276,0.0284,0.0328,0.0283,0.0183,
+  0.0996,0.0916,0.0922,0.0774,0.0816,0.0357,0.0315,0.0618,0.0201,0.0045,
+  0.0721,0.0963,0.0939,0.0933,0.0901,0.0801,-0.1431,0.0563,0.0468,0.0755,
+  0.0985,0.0717,0.0458,0.0457,0.0474,0.0467,0.0352,0.0388,0.0361,0.0421,
+  0.0356,0.0493,0.0549,0.0535,0.0278,0.0629,0.0820,0.0980,0.1345,0.1773,
+  0.0113,0.0114,0.0103,0.0023,0.0081,-0.0479,-0.3821,-0.0382,-0.3017,-0.2623,
+  0.1450,0.1309,0.1083,0.1302,0.1157,0.1351,0.1338,0.0974,0.1050,0.0854,
+  0.0925,0.1144,0.1160,0.0904,0.0829,0.0953,0.0535,0.0961,0.1080,0.0814,
+  0.0059,-0.0238,0.0028,-0.0197,0.0251,0.0460,-0.0845,0.0475,0.0366,0.0610,
+  0.0610,-0.0145,0.0214,0.0197,0.0148,-0.0007,-0.0548,0.0252,0.0393,0.0488,
+  0.0353,0.0360,0.0395,0.0297,0.0304,0.0244,0.0095,0.0047,0.0407,0.0050,
+  -0.0635,-0.0177,-0.0144,-0.0371,-0.0887,-0.1082,-0.0467,0.0067,0.0385,0.0133
+)
+
+# ── ROE ───────────────────────────────────────────────────────────────────
+ROE_raw <- c(
+  0.1409,0.1552,0.1487,0.1444,0.1161,0.1183,0.0523,0.1045,0.1105,0.1184,
+  0.1351,0.1695,0.1624,0.2078,0.2012,0.1723,0.1799,0.1491,0.1410,0.1551,
+  0.1684,0.0636,0.0818,0.1230,0.1420,0.1574,0.1593,0.1556,0.1706,0.2595,
+  0.0864,0.2670,0.2884,0.1410,0.1964,0.1614,0.1721,0.1407,0.1759,0.1227,
+  0.1356,0.1281,0.1271,0.1264,0.1158,0.0551,0.0987,0.0904,0.0779,0.0011,
+  0.0527,0.0597,0.0813,0.1700,0.0696,-0.3300,-0.1214,0.1488,0.2131,0.0680,
+  0.3683,0.2840,0.3617,0.3603,0.3836,0.2259,0.4263,0.4028,0.1979,0.3576,
+  0.1725,0.1967,0.1888,0.1905,0.1932,0.2959,0.2489,0.1748,0.2093,0.1611,
+  0.1272,0.1723,-0.0256,0.1819,0.2054,0.2236,0.1757,0.3160,0.2725,0.2830,
+  0.3559,0.3323,0.6446,0.5215,0.3649,0.2738,0.1921,0.3253,0.1796,0.0261,
+  0.0589,-0.0320,-0.0332,0.0226,0.0066,-0.0223,-0.0154,0.0570,0.0465,0.0359,
+  0.1820,0.1950,0.2409,0.2045,0.2278,0.2268,0.1707,0.1776,0.1795,0.1320,
+  0.1756,0.2064,0.2350,0.2203,0.2722,0.2403,0.2359,0.2473,0.2270,0.1838,
+  0.1900,0.2303,0.2632,0.2846,0.0290,0.0222,-0.0702,0.0647,0.0885,0.0881,
+  0.0871,0.0442,0.0798,0.0530,0.0338,0.0319,-0.0755,-0.0092,0.0039,0.0176,
+  0.1251,0.1089,0.0259,0.0857,0.1462,0.0890,-0.0028,0.0539,0.0165,0.0270,
+  0.1170,0.1197,0.1156,0.2518,0.2498,0.0775,-0.0318,-0.0040,-0.0147,-0.0153,
+  0.1623,0.2169,0.2728,0.2678,0.2249,0.1930,0.1236,0.1699,0.0587,0.1015,
+  0.0432,0.0299,0.0476,0.0613,0.0598,0.0556,0.0559,0.0642,0.0523,0.0320,
+  0.1350,0.1530,0.1382,0.1403,0.1127,0.1149,0.0910,0.1541,0.0591,0.0181,
+  0.1441,0.1812,0.2103,0.1950,0.1990,0.1873,-0.3505,0.1231,0.1065,0.1758,
+  0.1291,0.0910,0.1075,0.1076,0.1070,0.1067,0.0775,0.0777,0.0724,0.0803,
+  0.0726,0.1064,0.1070,0.0963,0.0367,0.0784,0.1211,0.1445,0.2906,0.3238,
+  0.0349,0.0376,0.0281,0.0068,0.1317,-0.3409,0.1816,0.8221,0.8375,0.3985,
+  0.1813,0.1700,0.1332,0.1576,0.1460,0.1702,0.1658,0.1155,0.1364,0.1013,
+  0.1385,0.1514,0.1656,0.1639,0.1347,0.1720,0.1101,0.1433,0.1726,0.1374,
+  0.0250,-0.0998,0.0049,-0.0581,0.0706,0.1088,-0.2415,0.1494,0.1167,0.1545,
+  0.2959,-0.0705,0.0931,0.1196,0.0432,-0.0037,-0.1651,0.0800,0.1271,0.1350,
+  0.0561,0.0603,0.0684,0.0552,0.0419,0.0338,0.0156,0.0077,0.0825,0.0103,
+  -0.1609,-0.0466,-0.0399,-0.1055,-0.2840,-0.4734,-0.2193,0.0282,0.1646,0.0548
+)
+
+# ── Tobin's Q ─────────────────────────────────────────────────────────────
+TobinsQ_raw <- c(
+  3.576,3.480,0.889,1.340,1.042,0.943,0.847,0.996,1.391,1.387,
+  0.142,0.098,1.366,1.200,1.703,2.035,1.919,2.121,1.611,1.442,
+  1.648,1.479,0.688,1.030,0.994,1.197,1.311,1.732,1.491,1.291,
+  6.435,6.155,3.049,2.725,2.355,2.411,2.135,2.910,1.809,2.479,
+  9.082,9.332,1.131,1.459,1.061,1.349,1.222,1.155,1.088,1.655,
+  1.510,1.305,1.255,1.784,1.105,1.107,1.328,1.266,1.618,1.153,
+  2.430,1.901,0.800,2.232,2.147,2.210,2.437,2.329,2.149,1.662,
+  0.978,1.140,1.230,1.190,1.186,1.054,1.098,0.993,0.807,0.910,
+  0.136,0.176,0.173,0.189,0.190,0.188,0.218,0.251,0.256,0.259,
+  0.801,0.804,1.757,1.717,0.635,0.616,0.604,0.621,0.678,0.732,
+  0.656,0.613,0.463,0.461,0.506,0.477,0.520,0.515,0.597,0.629,
+  1.222,1.800,0.175,0.235,0.240,0.296,0.481,0.481,0.391,0.342,
+  2.566,2.390,2.313,2.163,2.451,2.381,6.893,5.764,3.955,3.577,
+  2.419,2.671,2.711,3.918,1.916,1.715,1.627,1.776,1.163,1.649,
+  1.169,0.982,0.837,0.781,0.871,0.802,0.743,0.842,0.569,0.950,
+  1.178,1.200,0.703,0.780,0.656,0.820,0.706,0.627,0.527,0.741,
+  0.864,0.811,0.867,0.837,0.767,0.546,0.466,0.441,0.358,0.366,
+  2.126,2.042,2.853,3.912,3.414,2.782,2.523,2.783,2.482,2.408,
+  0.754,0.717,0.787,0.816,0.824,0.795,0.956,1.074,0.902,0.775,
+  2.285,2.215,2.493,1.974,2.045,1.251,1.192,1.572,1.044,0.958,
+  1.117,1.358,1.260,1.665,1.674,1.560,1.681,1.689,1.402,1.413,
+  2.126,1.937,1.199,1.106,1.189,1.167,1.155,1.067,0.982,1.173,
+  1.058,0.978,1.046,1.157,0.797,0.830,1.115,1.562,1.262,1.328,
+  0.927,0.870,0.894,1.158,1.073,0.011,0.726,1.244,1.598,1.863,
+  2.223,2.179,2.304,2.318,1.752,1.808,1.914,2.165,1.954,2.003,
+  1.904,2.074,2.178,2.422,1.943,1.610,1.865,1.883,1.696,2.506,
+  1.192,2.540,0.779,1.007,0.993,1.026,1.033,1.126,1.091,1.357,
+  1.218,0.852,0.261,0.351,0.148,0.107,0.166,0.167,0.156,0.258,
+  1.513,1.308,1.193,1.197,0.996,0.988,0.974,1.181,1.127,1.153,
+  1.181,0.940,0.947,1.232,1.006,1.096,1.167,2.253,1.835,1.705
+)
+
+# ── Score RSE (26 items — E8 Label CGEM retiré du score, capturé séparément) ──
+# Justification : Le Label CGEM est un signal coûteux au sens de Spence (1973).
+# L'inclure dans le score ET comme variable de contrôle permettrait de séparer
+# l'effet de la qualité RSE (score) de l'effet du signal institutionnel (label).
+# Référence : Berg, Kölbel & Rigobon (2022) — divergence labels vs scores.
+RSE_raw <- c(
+  10.1,22.9,36.8,36.1,47.5,80.3,82.8,72.3,72.3,77.3,   # Colorado
+  57.5,67.0,88.5,48.0,88.5,86.5,81.3,81.3,81.3,81.3,   # Cosumar
+  16.0,19.1,19.1,36.0,34.2,54.3,57.7,69.8,87.1,87.1,   # Label Vie
+  18.9,26.4,31.4,39.3,37.6,48.3,66.1,79.0,87.4,87.4,   # LafargeHolcim
+  13.5,18.0,23.8,27.0,27.0,23.3,22.5,49.3,63.3,77.0,   # Lesieur Cristal
+  26.4,50.8,62.3,57.7,45.2,63.6,67.8,74.5,83.8,79.4,   # Managem
+   8.1, 8.1,10.0,10.0,16.3,18.1,21.9,21.9,21.9,21.9,   # Maroc Telecom
+  27.5,34.6,43.9,56.1,63.5,35.1,89.1,83.9,90.2,91.3,   # TAQA Morocco
+  21.7,38.2,40.7,36.3,27.6,58.0,62.0,72.2,71.1,87.5,   # Ciments du Maroc
+  23.1,30.3,26.8,22.3,21.0,67.3,77.3,68.8,73.3,76.6,   # Total Maroc
+  21.2,27.0,36.1,37.9,49.8,46.5,67.8,64.3,64.0,80.1,   # Sonasid
+  25.5,22.0,18.7,26.6,23.8,34.7,40.2,39.3,48.5,53.8,   # HPS
+  20.3,20.5,27.5,21.9,27.5,26.3,55.8,70.5,80.6,79.1,   # Sothema
+  19.2,25.0,23.3,21.5,17.1,28.0,57.2,74.5,83.1,82.6,   # Oulmes
+  20.5,18.7,15.9,18.2,45.0,37.6,42.1,43.4,57.3,50.8,   # Addoha
+  22.8,29.6,23.8,18.2,24.5,24.0,27.9,47.6,49.3,49.3,   # Aluminium
+   8.8,15.9,14.1, 8.5,15.9,17.6,31.2,30.9,35.5,43.0,   # Dar Saada
+  21.0,19.4,19.4,11.6,16.2,15.1,32.3,38.1,38.4,37.0,   # Dari Couspate
+  13.4,10.1,15.7,25.0,21.5,55.3,61.8,59.3,70.6,70.6,   # Maghreb Oxygen
+  11.6,13.4,13.6,12.9,15.7,17.0,14.1,46.0,44.2,58.1,   # Auto Hall
+  11.8,11.8,13.6,15.3,18.1,49.3,49.3,53.9,59.5,56.9,   # CTM
+  17.5,23.8,22.0,27.6,34.0,38.0,49.7,54.3,63.6,69.9,   # Delta Holding
+  19.2,18.7,20.5,18.7,24.5,33.6,48.8,46.0,44.4,36.8,   # Disway
+  19.7,17.0,20.8,18.2,18.0,20.0,43.8,37.2,36.5,33.0,   # Stokvis
+  18.0,20.1,23.5,20.1,20.8,23.9,18.2,24.3,26.1,26.1,   # Afric Industries
+  18.0,15.7,20.3,21.5,19.0,31.4,43.1,50.7,41.1,65.7,   # Auto Najma
+  11.6,20.3,14.5,23.6,18.5,24.3,46.0,46.1,55.6,69.0,   # Risma
+   3.0,17.5,11.1,18.5, 6.9,17.5,31.8,37.8,40.6,48.0,   # Alliances Darna
+   9.3,11.5,13.7,17.9,11.5,17.3,13.7,57.1,63.3,63.3,   # Unimer
+   9.6,17.3, 9.6,19.1, 9.6,17.3,40.8,42.3,49.9,43.9    # Fenie Brossette
+)
+
+# ── Taille (ln actifs) ────────────────────────────────────────────────────
+log_assets_raw <- c(
+  5.66,5.76,6.32,6.41,6.41,6.35,6.36,6.47,6.30,6.30,
+  9.02,9.10,9.05,9.28,9.27,9.31,9.35,9.41,9.39,9.57,
+  8.18,8.26,9.14,8.86,8.97,9.06,9.13,9.23,9.36,9.48,
+  8.98,8.99,9.96,9.96,9.94,9.94,9.92,9.95,9.93,9.91,
+  8.03,8.00,8.16,8.13,8.22,8.28,8.29,8.57,8.82,8.56,
+  9.13,9.22,9.26,9.35,9.33,9.43,9.52,9.73,9.87,10.05,
+  10.73,11.01,11.02,11.05,11.04,11.08,11.06,11.03,11.09,11.09,
+  10.08,10.07,10.02,9.96,9.88,9.87,9.89,9.87,10.02,9.35,
+  15.83,15.87,15.72,15.76,15.68,15.63,15.52,15.50,15.38,15.41,
+  15.41,15.31,15.30,14.45,14.61,15.67,15.66,15.62,15.83,16.07,
+  8.30,8.29,8.21,8.18,8.28,8.17,8.24,8.27,8.43,8.49,
+  5.98,6.13,6.60,6.71,6.96,7.01,7.08,7.22,7.35,7.39,
+  6.98,7.04,7.10,7.17,7.25,7.32,7.42,7.48,7.61,7.74,
+  7.17,7.31,7.39,7.58,7.76,7.88,7.86,7.41,7.60,8.01,
+  10.38,10.34,9.99,10.01,10.21,10.13,9.92,9.91,9.93,9.93,
+  6.75,6.81,6.75,6.68,7.05,6.93,6.87,7.07,7.22,7.01,
+  8.98,8.99,9.09,9.04,9.07,9.10,9.06,9.01,8.93,8.91,
+  5.42,5.63,5.75,5.92,5.97,6.16,6.25,6.37,6.42,6.61,
+  6.07,6.08,6.04,6.08,6.09,6.12,6.26,6.30,6.29,6.26,
+  7.58,7.73,7.72,7.77,7.63,8.47,8.33,8.22,8.51,8.74,
+  6.36,6.36,6.58,6.54,6.60,6.67,6.42,6.44,6.51,6.61,
+  7.41,7.34,8.37,8.44,8.43,8.46,8.41,8.40,8.43,8.41,
+  7.06,7.18,7.14,7.06,6.99,6.99,6.94,7.00,7.28,7.11,
+  6.80,6.89,6.67,6.77,6.83,6.67,6.51,6.64,6.41,6.19,
+  3.91,3.97,3.91,3.95,4.00,4.03,4.06,3.99,4.07,3.95,
+  6.85,6.81,6.97,7.28,7.21,7.42,7.56,7.32,7.49,7.57,
+  8.40,8.13,7.86,8.39,8.37,8.26,8.25,8.19,8.34,8.29,
+  8.77,8.71,9.18,9.64,8.96,8.93,8.85,8.90,8.87,8.75,
+  7.66,7.75,8.00,7.99,7.82,7.84,7.83,7.83,7.95,7.93,
+  6.59,6.58,6.60,6.52,6.39,6.32,6.20,6.12,6.28,6.30
+)
+
+# ── Endettement ───────────────────────────────────────────────────────────
+leverage_raw <- c(
+  0.72,0.74,0.01,0.11,0.11,0.06,0.09,0.04,0.04,0.02,
+  0.09,0.03,0.62,0.04,0.16,0.15,0.20,0.09,0.11,0.16,
+  0.85,0.79,0.33,0.32,0.29,0.31,0.33,0.36,0.33,0.37,
+  0.07,0.07,0.45,0.54,0.34,0.33,0.29,0.46,0.28,0.26,
+  0.47,0.46,0.06,0.04,0.04,0.09,0.09,0.13,0.14,0.23,
+  0.58,0.62,0.40,0.32,0.30,0.43,0.49,0.34,0.33,0.41,
+  0.25,0.23,0.24,0.24,0.25,0.29,0.32,0.27,0.28,0.27,
+  0.54,0.59,0.62,0.60,0.59,0.53,0.55,0.50,0.40,0.46,
+  0.14,0.18,0.17,0.19,0.19,0.18,0.21,0.25,0.25,0.25,
+  0.80,0.80,1.75,1.71,0.63,0.62,0.60,0.62,0.68,0.73,
+  0.46,0.51,0.05,0.46,0.51,0.48,0.52,0.51,0.60,0.63,
+  0.55,1.06,0.10,0.09,0.07,0.06,0.09,0.13,0.10,0.07,
+  0.30,0.26,0.31,0.29,0.43,0.41,0.39,0.35,0.38,0.42,
+  0.58,0.61,0.60,0.65,0.48,0.48,0.77,0.72,0.74,0.76,
+  0.83,0.80,0.48,0.49,0.75,0.74,0.68,0.76,0.51,0.80,
+  0.55,0.58,0.05,0.03,0.02,0.05,0.05,0.08,0.04,0.16,
+  0.56,0.53,0.32,0.36,0.47,0.38,0.38,0.35,0.30,0.29,
+  0.25,0.28,0.63,0.55,0.44,0.59,0.52,0.59,0.67,0.84,
+  0.51,0.51,0.53,0.53,0.51,0.50,0.49,0.49,0.46,0.43,
+  0.26,0.40,0.04,0.07,0.08,0.41,0.34,0.17,0.39,0.41,
+  0.50,0.47,0.22,0.19,0.20,0.23,0.31,0.24,0.16,0.47,
+  0.24,0.18,0.49,0.49,0.56,0.56,0.51,0.46,0.46,0.44,
+  0.51,0.52,0.49,0.44,0.28,0.29,0.30,0.29,0.34,0.26,
+  0.68,0.70,0.63,0.94,0.94,0.99,0.59,1.05,1.36,1.66,
+  0.20,0.23,0.18,0.19,0.21,0.21,0.20,0.16,0.23,0.16,
+  0.33,0.24,0.30,0.45,0.36,0.45,0.91,0.33,0.32,0.28,
+  0.76,2.10,0.42,0.66,0.60,0.58,0.65,0.68,0.69,0.61,
+  0.79,0.79,0.18,0.24,0.05,0.04,0.12,0.12,0.09,0.10,
+  0.40,0.40,0.42,0.46,0.26,0.28,0.39,0.39,0.51,0.51,
+  0.61,0.62,0.64,0.65,0.69,0.77,0.72,0.68,0.70,0.69
+)
+
+# ── Label CGEM (variable de contrôle — signal institutionnel Spence 1973) ──
+# Justification : capte l'effet de certification externe (Suchman 1995)
+# séparément du score RSE (qualité de divulgation).
+# Source : annuaires CGEM 2014–2023, communications officielles.
+cgem_raw <- c(
+  0,0,0,0,0,1,1,1,1,1,  # Colorado
+  0,0,0,0,0,0,1,1,1,1,  # Cosumar
+  1,0,0,0,0,0,1,1,1,1,  # Label Vie
+  1,0,0,0,0,0,1,1,1,1,  # LafargeHolcim
+  1,0,0,0,0,0,0,0,1,1,  # Lesieur Cristal
+  1,1,1,1,0,0,1,1,1,0,  # Managem
+  0,1,1,1,1,1,1,1,1,1,  # Maroc Telecom
+  1,0,1,1,1,1,1,1,1,1,  # TAQA Morocco
+  1,0,0,0,0,0,0,0,0,0,  # Ciments du Maroc
+  0,0,0,1,1,1,0,1,1,1,  # Total Maroc
+  0,0,0,0,0,0,1,1,1,1,  # Sonasid
+  1,1,0,1,1,1,0,0,0,1,  # HPS
+  1,1,0,0,0,0,0,0,0,0,  # Sothema
+  0,0,0,0,1,1,1,1,1,1,  # Oulmes
+  0,0,0,0,0,1,1,1,1,1,  # Addoha
+  1,0,0,0,0,0,0,0,0,0,  # Aluminium du Maroc
+  0,0,0,0,0,0,0,0,0,0,  # Dar Saada
+  0,0,0,0,0,0,0,0,0,0,  # Dari Couspate
+  0,0,0,0,0,0,0,0,0,0,  # Maghreb Oxygen
+  0,0,0,0,0,0,0,0,1,1,  # Auto Hall
+  1,0,0,0,0,0,0,0,0,0,  # CTM
+  0,0,0,0,0,0,1,1,1,0,  # Delta Holding
+  0,0,0,0,0,0,0,0,0,0,  # Disway
+  0,0,0,0,0,0,0,0,0,0,  # Stokvis
+  0,0,0,0,0,0,0,0,0,0,  # Afric Industries
+  0,0,0,0,0,0,0,0,0,0,  # Auto Najma
+  0,0,0,0,0,0,0,0,0,0,  # Risma
+  0,0,0,0,0,0,0,0,0,0,  # Alliances Darna
+  0,0,0,0,0,0,0,0,0,0,  # Unimer
+  0,0,0,0,0,0,0,0,0,0   # Fenie Brossette
+)
+
+# ── Construction du panel ─────────────────────────────────────────────────
+df_raw <- data.frame(
+  firm       = firms30,
+  sector     = sectors30,
+  year       = rep(2014:2023, 30),
+  ROA        = ROA_raw,
+  ROE        = ROE_raw,
+  TobinsQ    = TobinsQ_raw,
+  RSE_norm   = RSE_raw,
+  log_assets = log_assets_raw,
+  leverage   = leverage_raw,
+  post_ammc  = rep(c(0,0,0,0,0,1,1,1,1,1), 30),
+  covid      = rep(c(0,0,0,0,0,0,1,0,0,0), 30),
+  cgem       = cgem_raw   # Label CGEM — variable de contrôle
+)
+
+# Winsorisation 1–99%
+winsorize <- function(x, lo=0.01, hi=0.99) {
+  q <- quantile(x, probs=c(lo,hi), na.rm=TRUE)
+  pmax(pmin(x, q[2]), q[1])
+}
+df_raw$ROA     <- winsorize(df_raw$ROA)
+df_raw$ROE     <- winsorize(df_raw$ROE)
+df_raw$TobinsQ <- winsorize(df_raw$TobinsQ)
+
+vars_base <- c("ROA","ROE","TobinsQ","RSE_norm","log_assets","leverage","cgem")
+df_clean  <- df_raw[complete.cases(df_raw[, vars_base]), ]
+panel     <- pdata.frame(df_raw,   index=c("firm","year"))
+panel_c   <- pdata.frame(df_clean, index=c("firm","year"))
+
+df_raw$RSE_c      <- df_raw$RSE_norm   - mean(df_raw$RSE_norm,   na.rm=TRUE)
+df_raw$size_c     <- df_raw$log_assets - mean(df_raw$log_assets, na.rm=TRUE)
+df_raw$RSE_x_size <- df_raw$RSE_c * df_raw$size_c
+
+# Formule de base incluant le Label CGEM comme variable de contrôle
+formula_base <- function(dep)
+  as.formula(paste(dep,
+    "~ RSE_norm + log_assets + leverage + post_ammc + covid + cgem"))
+
+cat("Panel :", nrow(df_raw), "obs |", length(unique(df_raw$firm)),
+    "firmes |", length(unique(df_raw$year)), "années\n")
+cat("Score RSE : 26 items (E8 Label CGEM retiré — capturé par variable cgem)\n")
+cat("CGEM labellisés :", sum(df_raw$cgem), "obs-années sur", nrow(df_raw), "\n")
+```
+
+> **Note méthodologique — Label CGEM comme variable de contrôle :**
+> Le Label RSE CGEM est retiré du score RSE (item E8) et intégré comme variable de contrôle binaire distincte. Cette séparation repose sur trois arguments : (1) le label est un *signal coûteux* au sens de Spence (1973) — une certification externe qui capte la légitimité institutionnelle (Suchman, 1995), conceptuellement distincte de la qualité de divulgation mesurée par les 26 items restants ; (2) son inclusion dans le score et comme variable séparée créerait un double comptage, le label CGEM conditionnant l'obtention de plusieurs scores E/S/G ; (3) cette séparation permet de tester si le score RSE retient un pouvoir explicatif *net du signal de labellisation*, dépassant l'approche d'El Yaagoubi (2019) qui utilisait le label comme unique mesure RSE. Le coefficient β_cgem capture l'effet de la certification institutionnelle ; le coefficient β_RSE capture l'effet de la qualité de divulgation RSE au-delà du label.
+
+# Étape 1 — Statistiques descriptives
+
+```{r desc_stats}
+vars_d <- c("ROA","ROE","TobinsQ","RSE_norm","log_assets","leverage","cgem")
+labs_d <- c("ROA","ROE","Tobin's Q","Score RSE (0–100)",
+            "Taille (ln actifs)","Endettement","Label CGEM (0/1)")
+
+desc_tab <- do.call(rbind, lapply(seq_along(vars_d), function(i) {
+  x <- df_raw[[vars_d[i]]]
+  data.frame(Variable=labs_d[i], N=sum(!is.na(x)),
+    Moyenne=round(mean(x,na.rm=TRUE),4),
+    Mediane=round(median(x,na.rm=TRUE),4),
+    Ec.type=round(sd(x,na.rm=TRUE),4),
+    Min=round(min(x,na.rm=TRUE),4),
+    Max=round(max(x,na.rm=TRUE),4))
+}))
+
+kable(desc_tab, caption="Statistiques descriptives — Panel BVC 2014–2023 (N=300)",
+      col.names=c("Variable","N","Moyenne","Médiane","Éc.-type","Min","Max")) |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"),
+                full_width=FALSE, font_size=12) |>
+  footnote(general=paste0(
+    "Winsorisation 1%–99% sur ROA, ROE et Tobin's Q. ",
+    "Score RSE : 26 items après retrait de E8 (Label CGEM capturé séparément). ",
+    "CGEM = 1 : ", sum(df_raw$cgem), " obs-années (", round(mean(df_raw$cgem)*100,1), "% du panel)."),
+    general_title="Note :")
+```
+
+```{r between_within}
+bw_tab <- do.call(rbind, lapply(seq_along(vars_d), function(i) {
+  x   <- df_raw[[vars_d[i]]]
+  tot <- var(x, na.rm=TRUE)
+  bet <- var(tapply(x, df_raw$firm, mean, na.rm=TRUE), na.rm=TRUE)
+  wit <- var(x - ave(x, df_raw$firm, FUN=function(z) mean(z,na.rm=TRUE)), na.rm=TRUE)
+  data.frame(Variable=labs_d[i],
+    Var.Totale=round(tot,6), Var.Between=round(bet,6),
+    Var.Within=round(wit,6),
+    Pct.Within=paste0(round(wit/tot*100,1),"%"))
+}))
+
+kable(bw_tab, caption="Décomposition de variance Between / Within",
+      col.names=c("Variable","Var. Totale","Var. Between","Var. Within","% Within")) |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"),
+                full_width=FALSE, font_size=12) |>
+  footnote(general="% Within élevé → variabilité temporelle suffisante pour identification FE.",
+           general_title="Note :")
+```
+
+```{r rse_trend, fig.cap="Évolution du score RSE moyen — BVC 2014–2023 (26 items). Ligne rouge = Circulaire AMMC n°03/19."}
+rse_yr <- df_raw |>
+  group_by(year) |>
+  summarise(moy=mean(RSE_norm,na.rm=TRUE),
+            sd=sd(RSE_norm,na.rm=TRUE),
+            pct_cgem=mean(cgem,na.rm=TRUE), .groups="drop")
+
+ggplot(rse_yr, aes(x=year, y=moy)) +
+  geom_ribbon(aes(ymin=moy-sd, ymax=moy+sd), fill=COL_BLUE, alpha=0.12) +
+  geom_line(color=COL_BLUE, linewidth=1.4) +
+  geom_point(color=COL_BLUE, size=4, shape=21, fill="white", stroke=2) +
+  geom_label(aes(label=round(moy,1)), vjust=-1.1, size=3, color=COL_BLUE,
+             fill="white", label.size=0.2) +
+  geom_line(aes(y=pct_cgem*100), color="#F39C12",
+            linewidth=1, linetype="dashed") +
+  geom_vline(xintercept=2019, linetype="dashed", color=COL_AMMC, linewidth=1) +
+  annotate("label", x=2019.1, y=max(rse_yr$moy+rse_yr$sd)*0.88,
+           hjust=0, color=COL_AMMC, size=3.2, fill="white",
+           label="Circulaire AMMC\nn°03/19") +
+  annotate("text", x=2023.1, y=rse_yr$pct_cgem[10]*100, hjust=0,
+           color="#F39C12", size=3, label="% labellisés CGEM") +
+  scale_x_continuous(breaks=2014:2023) +
+  scale_y_continuous(limits=c(0,NA), expand=expansion(mult=c(0,0.18))) +
+  labs(title="Score RSE moyen et taux de labellisation CGEM — BVC 2014–2023",
+       subtitle="Bleu : score RSE (26 items) | Orange tirets : % firmes labellisées CGEM",
+       x=NULL, y="Score RSE moyen (sur 100)",
+       caption="Score RSE : grille CGEM/LSEG 2026, pondération SASB 2021, 26 items") +
+  theme_rse
+```
+
+# Étape 2 — Corrélations et VIF
+
+```{r correlation, fig.cap="Matrice de corrélations de Pearson (p ≥ 0.05 = cellule vide)."}
+corr_df <- df_raw[,c("ROA","ROE","TobinsQ","RSE_norm","log_assets","leverage","cgem")]
+colnames(corr_df) <- c("ROA","ROE","Tobin Q","RSE","Taille","Endett.","CGEM")
+cm <- cor(corr_df, use="pairwise.complete.obs")
+cp <- cor_pmat(corr_df)
+
+ggcorrplot(cm, p.mat=cp, sig.level=0.05, type="lower",
+           lab=TRUE, lab_size=3.8,
+           colors=c(COL_RED,"white",COL_BLUE),
+           insig="blank", outline.color="white") +
+  labs(title="Matrice de corrélations de Pearson",
+       caption="Cellules vides = p ≥ 0.05 | méthode pairwise") +
+  theme_rse + theme(axis.text.x=element_text(angle=45,hjust=1))
+```
+
+```{r vif}
+ols_vif <- lm(ROA ~ RSE_norm + log_assets + leverage +
+                post_ammc + covid + cgem, data=df_raw)
+vif_v <- car::vif(ols_vif)
+
+vif_tab <- data.frame(
+  Variable=names(vif_v), VIF=round(vif_v,3),
+  Evaluation=case_when(vif_v<5~"✓ Négligeable",
+                        vif_v<10~"⚠ Modéré",TRUE~"✗ Critique"))
+
+kable(vif_tab, caption="VIF — Spécification principale avec Label CGEM (VD = ROA)",
+      col.names=c("Variable","VIF","Évaluation"), row.names=FALSE) |>
+  kable_styling(bootstrap_options=c("striped","hover"),
+                full_width=FALSE, font_size=12) |>
+  row_spec(which(vif_tab$VIF >= 5), background="#FEF9E7") |>
+  footnote(general=paste0(
+    "VIF < 5 = négligeable (Hair et al., 2010). ",
+    "Corrélation RSE/CGEM attendue (r = ",
+    round(cor(df_raw$RSE_norm, df_raw$cgem, use='complete.obs'),2),
+    ") — VIF surveillé pour multicolinéarité potentielle."),
+    general_title="Note :")
+```
+
+# Étape 3 — Tests de spécification panel
+
+```{r spec_tests}
+spec <- do.call(rbind, lapply(c("ROA","ROE","TobinsQ"), function(dep) {
+  vars_n <- c(dep,"RSE_norm","log_assets","leverage","post_ammc","covid","cgem")
+  df_sub    <- df_raw[complete.cases(df_raw[,vars_n]),]
+  panel_sub <- pdata.frame(df_sub, index=c("firm","year"))
+  ols <- plm(formula_base(dep), data=panel_sub, model="pooling")
+  fe  <- plm(formula_base(dep), data=panel_sub, model="within", effect="individual")
+  re  <- tryCatch(plm(formula_base(dep), data=panel_sub, model="random",
+                      effect="individual", random.method="walhus"),
+                  error=function(e) NULL)
+  ft <- pFtest(fe, ols); bp <- plmtest(ols, type="bp")
+  if (!is.null(re)) {
+    hm <- tryCatch(phtest(fe, re), error=function(e) NULL)
+    if (!is.null(hm)) {
+      H_stat <- round(as.numeric(hm$statistic),3); H_p <- round(hm$p.value,4)
+      H_dec  <- if(hm$p.value<0.05)"FE obligatoire" else "RE acceptable"
+    } else { H_stat<-NA; H_p<-NA; H_dec<-"Non calculable" }
+  } else { H_stat<-NA; H_p<-NA; H_dec<-"RE singulier → FE" }
+  data.frame(VD=dep,
+    F=round(as.numeric(ft$statistic),3), F_p=round(ft$p.value,4),
+    F_dec=if(ft$p.value<0.05)"Panel ✓" else "OLS",
+    BP=round(as.numeric(bp$statistic),3), BP_p=round(bp$p.value,4),
+    BP_dec=if(bp$p.value<0.05)"Effets indiv. ✓" else "NS",
+    H=H_stat, H_p=H_p, H_dec=H_dec)
+}))
+
+kable(spec[,c("VD","F","F_p","F_dec","BP","BP_p","BP_dec")],
+      caption="Tests de spécification : Fisher et Breusch-Pagan",
+      col.names=c("VD","F","p","Décision","χ² BP","p","Décision"),row.names=FALSE) |>
+  kable_styling(bootstrap_options=c("striped","hover"),full_width=FALSE,font_size=12)
+
+kable(spec[,c("VD","H","H_p","H_dec")],
+      caption="Test de Hausman — FE vs RE",
+      col.names=c("VD","χ²","p-valeur","Décision"),row.names=FALSE) |>
+  kable_styling(bootstrap_options=c("striped","hover"),full_width=FALSE,font_size=12) |>
+  footnote(general="FE retenus sur base théorique et empirique.",general_title="Note :")
+```
+
+# Étape 4 — Diagnostics panel
+
+```{r diagnostics}
+wtest <- do.call(rbind, lapply(c("ROA","ROE","TobinsQ"), function(dep) {
+  fe_tmp <- plm(formula_base(dep), data=panel_c, model="within", effect="individual")
+  bg <- pbgtest(fe_tmp, order=1)
+  data.frame(VD=dep, stat=round(as.numeric(bg$statistic),3), p=round(bg$p.value,4),
+    Dec=if(bg$p.value<0.05)"AR(1) détecté → SE robustes ✓" else "Pas d'AR(1)")
+}))
+
+htest_tab <- do.call(rbind, lapply(c("ROA","ROE","TobinsQ"), function(dep) {
+  fe_tmp <- plm(formula_base(dep), data=panel_c, model="within", effect="individual")
+  bt <- bptest(fe_tmp, studentize=FALSE)
+  data.frame(VD=dep, BP=round(as.numeric(bt$statistic),3), df=as.integer(bt$parameter),
+    p=round(bt$p.value,4),
+    Dec=if(bt$p.value<0.05)"Hétéroscédasticité → SE robustes ✓" else "Homoscédasticité")
+}))
+
+kable(wtest, caption="Test de Breusch-Godfrey — Autocorrélation AR(1)",
+      col.names=c("VD","χ²","p-valeur","Décision"),row.names=FALSE) |>
+  kable_styling(bootstrap_options=c("striped","hover"),full_width=FALSE,font_size=12)
+
+kable(htest_tab, caption="Test de Breusch-Pagan — Hétéroscédasticité",
+      col.names=c("VD","BP","df","p-valeur","Décision"),row.names=FALSE) |>
+  kable_styling(bootstrap_options=c("striped","hover"),full_width=FALSE,font_size=12)
+```
+
+# Étape 5 — Test d'endogénéité (diagnostic, limite assumée)
+
+> **Note :** Le test Wu-Hausman est diagnostique uniquement. L'endogénéité potentielle n'est pas corrigée faute d'instrument externe crédible — limite commune aux marchés émergents africains (Amaazoul, 2021 ; Mouatassim Lahmini & Ibenrissoul, 2016).
+
+```{r endogeneity}
+df_e <- df_clean |> arrange(firm,year) |> group_by(firm) |>
+  mutate(RSE_lag1=lag(RSE_norm,1), RSE_lag2=lag(RSE_norm,2)) |>
+  ungroup() |> filter(!is.na(RSE_lag1)&!is.na(RSE_lag2))
+
+endo <- do.call(rbind, lapply(c("ROA","ROE","TobinsQ"), function(dep) {
+  m1 <- lm(RSE_norm~RSE_lag1+RSE_lag2+log_assets+leverage+post_ammc+covid+cgem,
+           data=df_e)
+  df_tmp <- df_e; df_tmp$vhat <- residuals(m1)
+  f2 <- as.formula(paste(dep,"~RSE_norm+vhat+log_assets+leverage+post_ammc+covid+cgem"))
+  m2 <- lm(f2, data=df_tmp); s <- summary(m2)$coefficients
+  data.frame(VD=dep, t=round(s["vhat","t value"],3), p=round(s["vhat","Pr(>|t|)"],4),
+    Dec=if(s["vhat","Pr(>|t|)"]<0.05)"Endogénéité → limite assumée"
+        else "Exogénéité non rejetée → FE valide")
+}))
+
+kable(endo, caption="Test Wu-Hausman — RSE exogène ? (diagnostic)",
+      col.names=c("VD","t (v̂)","p-valeur","Décision"),row.names=FALSE) |>
+  kable_styling(bootstrap_options=c("striped","hover"),full_width=FALSE,font_size=12) |>
+  row_spec(which(endo$p<0.05), background="#FEF9E7")
+```
+
+# Étape 6 — Stationnarité (IPS)
+
+```{r stationarity}
+IPS_E <- -1.730; IPS_VAR <- 1.020
+
+ips_res <- do.call(rbind, lapply(
+  c("ROA","ROE","TobinsQ","RSE_norm","log_assets","leverage","cgem"),
+  function(v) {
+    adfs <- c()
+    for (f in unique(df_clean$firm)) {
+      s <- na.omit(df_clean[df_clean$firm==f, v])
+      if (length(s)>=4)
+        tryCatch({adfs<-c(adfs,adf.test(s,alternative="stationary",k=1)$statistic)},
+                 error=function(e) NULL)
+    }
+    if (!length(adfs)) return(NULL)
+    W <- sqrt(length(adfs))*(mean(adfs)-IPS_E)/sqrt(IPS_VAR); p <- pnorm(W)
+    dec <- case_when(p<0.01~"✓ Stationnaire (p<0.01)",
+                     p<0.05~"✓ Stationnaire (p<0.05)",
+                     p<0.10~"~ Marginal",TRUE~"⚠ Racine unitaire")
+    data.frame(Variable=v, N=length(adfs), ADF_moy=round(mean(adfs),3),
+               W=round(W,3), p=round(p,4), Dec=dec)
+  }))
+
+kable(ips_res, caption="Test IPS (Im, Pesaran & Shin, 2003)",
+      col.names=c("Variable","N firmes","ADF moy.","W-stat","p-valeur","Décision"),
+      row.names=FALSE) |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"),
+                full_width=FALSE,font_size=12) |>
+  row_spec(which(ips_res$p>=0.10), background="#FEF9E7") |>
+  footnote(general="E[t̄]=-1.730 ; Var[t̄]=1.020 (T=10, sans tendance).",
+           general_title="Note :")
+```
+
+# Étape 7 — H1 : RSE → Performance (FE + Label CGEM contrôlé)
+
+```{r fe_h1}
+library(plm)
+library(lmtest)
+
+# ====================== MODÈLES FIXED EFFECTS ======================
+fe_roa <- plm(formula_base("ROA"), data = panel_c, model = "within", effect = "individual")
+fe_roe <- plm(formula_base("ROE"), data = panel_c, model = "within", effect = "individual")
+fe_toq <- plm(formula_base("TobinsQ"), data = panel_c, model = "within", effect = "individual")
+
+# ====================== TESTS ======================
+
+# Autocorrélation sérielle (Breusch-Godfrey / Wooldridge)
+pbgtest(fe_roa)
+pbgtest(fe_roe)
+pbgtest(fe_toq)
+
+# Autocorrélation sérielle — test de Wooldridge pour modèles FE
+pwartest(fe_roa)
+pwartest(fe_roe)
+pwartest(fe_toq)
+
+# ====================== CORRECTION ======================
+
+# Erreurs standards robustes clusterisées par firme (Arellano, 1987, HC1)
+# — robustes à l'hétéroscédasticité et à l'autocorrélation intra-firme
+vc_roa <- vcovHC(fe_roa, method = "arellano", type = "HC1", cluster = "group")
+vc_roe <- vcovHC(fe_roe, method = "arellano", type = "HC1", cluster = "group")
+vc_toq <- vcovHC(fe_toq, method = "arellano", type = "HC1", cluster = "group")
+
+# Robustesse : Driscoll-Kraay (dépendance transversale entre firmes)
+vc_dk_roa <- vcovSCC(fe_roa, type = "HC1", maxlag = 1)
+vc_dk_roe <- vcovSCC(fe_roe, type = "HC1", maxlag = 1)
+vc_dk_toq <- vcovSCC(fe_toq, type = "HC1", maxlag = 1)
+
+# ====================== AFFICHAGE ======================
+
+cat("=== ROA ===\n")
+coeftest(fe_roa, vcov = vc_roa)
+
+cat("\n=== ROE ===\n")
+coeftest(fe_roe, vcov = vc_roe)
+
+cat("\n=== Tobin's Q ===\n")
+coeftest(fe_toq, vcov = vc_toq)
+```
+
+```{r fe_table, results='asis'}
+
+
+stargazer(fe_roa, fe_roe, fe_toq, 
+          type = "html",
+          title = "H1 — RSE et Performance Financière : Effets Fixes (Modèle avec 26 items)",
+          dep.var.labels = c("ROA", "ROE", "Tobin's Q"),
+          covariate.labels = c("Score RSE (26 items)", 
+                              "Taille (ln actifs)", 
+                              "Endettement", 
+                              "Post-AMMC (2019+)", 
+                              "COVID (2020)", 
+                              "Label CGEM (0/1)"),
+          
+          # Erreurs standards robustes
+          se = list(sqrt(diag(vc_roa)), 
+                    sqrt(diag(vc_roe)), 
+                    sqrt(diag(vc_toq))),
+          
+          add.lines = list(
+            c("Effets Fixes (Entité)", "Oui", "Oui", "Oui"),
+            c("SE robustes (cluster par firme)", "Oui", "Oui", "Oui"),
+            c("Nombre de firmes", "30", "30", "30"),
+            c("Observations", nrow(model.frame(fe_roa)), 
+                              nrow(model.frame(fe_roe)), 
+                              nrow(model.frame(fe_toq)))
+          ),
+          
+          notes = paste0("Erreurs standards robustes clusterisées par firme (Arellano, 1987). ",
+                         "Label CGEM : variable de contrôle (signal institutionnel). ",
+                         "* p<0.10 ; ** p<0.05 ; *** p<0.01."),
+          notes.align = "l",
+          header = FALSE,
+          single.row = FALSE,
+          digits = 3,
+          star.cutoffs = c(0.10, 0.05, 0.01)
+)
+```
+
+```{r coef_plot, fig.cap="Coefficients β — Score RSE (26 items) et Label CGEM sur la Performance."}
+z95 <- qnorm(0.975); z90 <- qnorm(0.950)
+
+extract_ci <- function(m, vc, var, lab) {
+  b <- tryCatch(coef(m)[var], error=function(e) NA_real_)
+  s <- tryCatch(sqrt(vc[var,var]), error=function(e) NA_real_)
+  data.frame(Modele=lab, Coef=b,
+    Lo95=b-z95*s, Hi95=b+z95*s, Lo90=b-z90*s, Hi90=b+z90*s)
+}
+
+ci_rse <- rbind(
+  extract_ci(fe_roa,vc_roa,"RSE_norm","ROA"),
+  extract_ci(fe_roe,vc_roe,"RSE_norm","ROE"),
+  extract_ci(fe_toq,vc_toq,"RSE_norm","Tobin's Q")
+)
+ci_rse$Modele <- factor(ci_rse$Modele, levels=c("ROA","ROE","Tobin's Q"))
+ci_cgem <- rbind(
+  extract_ci(fe_roa,vc_roa,"cgem","ROA"),
+  extract_ci(fe_roe,vc_roe,"cgem","ROE"),
+  extract_ci(fe_toq,vc_toq,"cgem","Tobin's Q")
+)
+ci_cgem$Modele <- factor(ci_cgem$Modele, levels=c("ROA","ROE","Tobin's Q"))
+
+pal <- c(ROA=COL_BLUE, ROE=COL_GREEN, `Tobin's Q`=COL_RED)
+
+p1 <- ggplot(ci_rse, aes(x=Modele, y=Coef, color=Modele)) +
+  geom_hline(yintercept=0, linetype="dashed", color="grey60", linewidth=0.9) +
+  geom_linerange(aes(ymin=Lo95,ymax=Hi95), linewidth=1.4, alpha=0.35) +
+  geom_linerange(aes(ymin=Lo90,ymax=Hi90), linewidth=2.8, alpha=0.65) +
+  geom_point(size=5, shape=21, fill="white", stroke=2.5) +
+  geom_text(aes(label=sprintf("β=%.4f",Coef)), vjust=-1.6, size=3.5, fontface="bold") +
+  scale_color_manual(values=pal) +
+  labs(title="β — Score RSE (26 items)", subtitle="IC épais=90% · IC fin=95%",
+       x=NULL, y="Coefficient β") +
+  theme_rse + theme(legend.position="none", panel.grid.major.x=element_blank())
+
+p2 <- ggplot(ci_cgem, aes(x=Modele, y=Coef, color=Modele)) +
+  geom_hline(yintercept=0, linetype="dashed", color="grey60", linewidth=0.9) +
+  geom_linerange(aes(ymin=Lo95,ymax=Hi95), linewidth=1.4, alpha=0.35) +
+  geom_linerange(aes(ymin=Lo90,ymax=Hi90), linewidth=2.8, alpha=0.65) +
+  geom_point(size=5, shape=21, fill="white", stroke=2.5) +
+  geom_text(aes(label=sprintf("β=%.4f",Coef)), vjust=-1.6, size=3.5, fontface="bold") +
+  scale_color_manual(values=pal) +
+  labs(title="β — Label CGEM (variable de contrôle)", subtitle="Signal institutionnel Spence (1973)",
+       x=NULL, y="Coefficient β") +
+  theme_rse + theme(legend.position="none", panel.grid.major.x=element_blank())
+
+gridExtra::grid.arrange(p1, p2, ncol=2)
+```
+
+# Étape 8 — H2 : Performance passée → RSE
+
+```{r h2}
+make_h2 <- function(df, lag_var) {
+  df |> arrange(firm,year) |> group_by(firm) |>
+    mutate(RSE_lag1=lag(RSE_norm,1), perf_lag=lag(.data[[lag_var]],1)) |>
+    ungroup() |>
+    filter(!is.na(RSE_lag1),!is.na(perf_lag),
+           !is.na(RSE_norm),!is.na(log_assets),!is.na(leverage),!is.na(cgem))
+}
+
+p2a <- pdata.frame(make_h2(df_clean,"ROA"),     index=c("firm","year"))
+p2b <- pdata.frame(make_h2(df_clean,"ROE"),     index=c("firm","year"))
+p2c <- pdata.frame(make_h2(df_clean,"TobinsQ"), index=c("firm","year"))
+
+h2a <- plm(RSE_norm~RSE_lag1+perf_lag+log_assets+leverage+post_ammc+covid+cgem,
+           data=p2a, model="within", effect="individual")
+h2b <- plm(RSE_norm~RSE_lag1+perf_lag+log_assets+leverage+post_ammc+covid+cgem,
+           data=p2b, model="within", effect="individual")
+h2c <- plm(RSE_norm~RSE_lag1+perf_lag+log_assets+leverage+post_ammc+covid+cgem,
+           data=p2c, model="within", effect="individual")
+
+vc2a <- vcovHC(h2a, method="arellano", cluster="group")
+vc2b <- vcovHC(h2b, method="arellano", cluster="group")
+vc2c <- vcovHC(h2c, method="arellano", cluster="group")
+```
+
+```{r h2_table, results='asis'}
+stargazer(h2a, h2b, h2c, type="html",
+  title="H2 — Performance passée → RSE (Slack Resources Hypothesis)",
+  dep.var.labels="Score RSE (26 items, t)",
+  column.labels=c("ROA(t−1)","ROE(t−1)","Q(t−1)"),
+  order=c("RSE_lag1","perf_lag","log_assets","leverage","post_ammc","covid","cgem"),
+  covariate.labels=c("RSE(t−1)","Performance(t−1)","Taille",
+                     "Endettement","Post-AMMC","COVID","Label CGEM"),
+  se=list(sqrt(diag(vc2a)),sqrt(diag(vc2b)),sqrt(diag(vc2c))),
+  add.lines=list(c("FE entité","Oui","Oui","Oui"),
+                 c("SE robustes","Oui","Oui","Oui"),
+                 c("N obs.",nrow(model.frame(h2a)),
+                   nrow(model.frame(h2b)),nrow(model.frame(h2c)))),
+  notes="* p<0.10 ; ** p<0.05 ; *** p<0.01.",
+  notes.align="l", header=FALSE)
+```
+
+# Étape 9 — H3 : Modération par la taille
+
+```{r h3}
+df_h3 <- df_clean |> arrange(firm,year) |> group_by(firm) |>
+  mutate(ROA_lag=lag(ROA,1), ROE_lag=lag(ROE,1), TQ_lag=lag(TobinsQ,1)) |>
+  ungroup() |> filter(!is.na(ROA_lag)&!is.na(ROE_lag)&!is.na(TQ_lag))
+
+df_h3$RSE_c <- df_h3$RSE_norm   - mean(df_h3$RSE_norm,  na.rm=TRUE)
+df_h3$siz_c <- df_h3$log_assets - mean(df_h3$log_assets,na.rm=TRUE)
+df_h3$inter <- df_h3$RSE_c * df_h3$siz_c
+
+p3a <- pdata.frame(dplyr::rename(df_h3,vd_lag=ROA_lag), index=c("firm","year"))
+p3b <- pdata.frame(dplyr::rename(df_h3,vd_lag=ROE_lag), index=c("firm","year"))
+p3c <- pdata.frame(dplyr::rename(df_h3,vd_lag=TQ_lag),  index=c("firm","year"))
+
+h3a <- plm(ROA    ~RSE_c+siz_c+inter+leverage+post_ammc+covid+cgem+vd_lag,
+           data=p3a, model="within", effect="individual")
+h3b <- plm(ROE    ~RSE_c+siz_c+inter+leverage+post_ammc+covid+cgem+vd_lag,
+           data=p3b, model="within", effect="individual")
+h3c <- plm(TobinsQ~RSE_c+siz_c+inter+leverage+post_ammc+covid+cgem+vd_lag,
+           data=p3c, model="within", effect="individual")
+
+vc3a <- vcovHC(h3a, method="arellano", cluster="group")
+vc3b <- vcovHC(h3b, method="arellano", cluster="group")
+vc3c <- vcovHC(h3c, method="arellano", cluster="group")
+```
+
+```{r h3_table, results='asis'}
+stargazer(h3a, h3b, h3c, type="html",
+  title="H3 — Effet Modérateur de la Taille sur la Relation RSE–Performance",
+  dep.var.labels=c("ROA","ROE","Tobin's Q"),
+  covariate.labels=c("RSE (centré)","Taille (centrée)","RSE × Taille",
+                     "Endettement","Post-AMMC","COVID","Label CGEM","VD (t−1)"),
+  se=list(sqrt(diag(vc3a)),sqrt(diag(vc3b)),sqrt(diag(vc3c))),
+  add.lines=list(c("FE entité","Oui","Oui","Oui"),
+                 c("SE robustes","Oui","Oui","Oui"),
+                 c("N obs.",nrow(model.frame(h3a)),
+                   nrow(model.frame(h3b)),nrow(model.frame(h3c)))),
+  notes="Variables centrées avant interaction (Aiken & West, 1991). * p<0.10 ; ** p<0.05 ; *** p<0.01.",
+  notes.align="l", header=FALSE)
+```
+
+# Étape 10 — Robustesse
+
+## 10a — Effets Aléatoires (RE)
+
+```{r re_table, results='asis'}
+re_roa <- plm(formula_base("ROA"),     data=panel_c, model="random",
+              effect="individual", random.method="walhus")
+re_roe <- plm(formula_base("ROE"),     data=panel_c, model="random",
+              effect="individual", random.method="walhus")
+re_toq <- plm(formula_base("TobinsQ"), data=panel_c, model="random",
+              effect="individual", random.method="walhus")
+
+vc_re_r <- vcovHC(re_roa, method="arellano", cluster="group")
+vc_re_e <- vcovHC(re_roe, method="arellano", cluster="group")
+vc_re_q <- vcovHC(re_toq, method="arellano", cluster="group")
+
+stargazer(re_roa, re_roe, re_toq, type="html",
+  title="Robustesse [10a] — Effets Aléatoires (Wallace-Hussain)",
+  dep.var.labels=c("ROA","ROE","Tobin's Q"),
+  covariate.labels=c("Score RSE","Taille","Endettement","Post-AMMC","COVID","Label CGEM"),
+  se=list(sqrt(diag(vc_re_r)),sqrt(diag(vc_re_e)),sqrt(diag(vc_re_q))),
+  add.lines=list(c("Modèle","RE","RE","RE"),c("SE robustes","Oui","Oui","Oui")),
+  notes="Wallace-Hussain. * p<0.10 ; ** p<0.05 ; *** p<0.01.",
+  notes.align="l", header=FALSE)
+```
+
+## 10b — Sous-périodes Pré / Post AMMC
+
+```{r sous_periodes, results='asis'}
+df_pre  <- df_clean[df_clean$year<=2018,]
+df_post <- df_clean[df_clean$year>=2019,]
+p_pre   <- pdata.frame(df_pre,  index=c("firm","year"))
+p_post  <- pdata.frame(df_post, index=c("firm","year"))
+
+f_pre  <- function(d) as.formula(paste(d,"~RSE_norm+log_assets+leverage+cgem"))
+f_post <- function(d) as.formula(paste(d,"~RSE_norm+log_assets+leverage+covid+cgem"))
+
+pre_r  <- plm(f_pre("ROA"),     data=p_pre,  model="within", effect="individual")
+pre_oe <- plm(f_pre("ROE"),     data=p_pre,  model="within", effect="individual")
+pre_q  <- plm(f_pre("TobinsQ"), data=p_pre,  model="within", effect="individual")
+post_r <- plm(f_post("ROA"),    data=p_post, model="within", effect="individual")
+post_e <- plm(f_post("ROE"),    data=p_post, model="within", effect="individual")
+post_q <- plm(f_post("TobinsQ"),data=p_post, model="within", effect="individual")
+
+vcp_r <-vcovHC(pre_r, method="arellano",cluster="group")
+vcp_oe<-vcovHC(pre_oe,method="arellano",cluster="group")
+vcp_q <-vcovHC(pre_q, method="arellano",cluster="group")
+vcpo_r<-vcovHC(post_r,method="arellano",cluster="group")
+vcpo_e<-vcovHC(post_e,method="arellano",cluster="group")
+vcpo_q<-vcovHC(post_q,method="arellano",cluster="group")
+
+stargazer(pre_r,pre_oe,pre_q,post_r,post_e,post_q, type="html",
+  title="Robustesse [10b] — Pré-AMMC (2014–2018) vs Post-AMMC (2019–2023)",
+  dep.var.labels=c("Pré-AMMC","Post-AMMC"),
+  column.labels=c("ROA","ROE","Q","ROA","ROE","Q"),
+  order=c("RSE_norm","log_assets","leverage","covid","cgem"),
+  covariate.labels=c("Score RSE","Taille","Endettement","COVID","Label CGEM"),
+  se=list(sqrt(diag(vcp_r)),sqrt(diag(vcp_oe)),sqrt(diag(vcp_q)),
+          sqrt(diag(vcpo_r)),sqrt(diag(vcpo_e)),sqrt(diag(vcpo_q))),
+  add.lines=list(c("FE entité",rep("Oui",6)),c("SE robustes",rep("Oui",6)),
+                 c("N obs.",nrow(model.frame(pre_r)),nrow(model.frame(pre_oe)),
+                   nrow(model.frame(pre_q)),nrow(model.frame(post_r)),
+                   nrow(model.frame(post_e)),nrow(model.frame(post_q)))),
+  notes="Pré : covid et post_ammc exclus (=0). Post : post_ammc exclu (=1). * p<0.10 ; ** p<0.05 ; *** p<0.01.",
+  notes.align="l", header=FALSE)
+```
+
+## 10c — Évolution des β RSE par sous-période
+
+```{r beta_evolution, fig.cap="Coefficients β (Score RSE) et β (Label CGEM) — Pré vs Post AMMC."}
+betas <- rbind(
+  data.frame(extract_ci(pre_r, vcp_r,  "RSE_norm","ROA"),
+             Periode="Pré-AMMC", Variable="Score RSE"),
+  data.frame(extract_ci(pre_oe,vcp_oe, "RSE_norm","ROE"),
+             Periode="Pré-AMMC", Variable="Score RSE"),
+  data.frame(extract_ci(pre_q, vcp_q,  "RSE_norm","Tobin's Q"),
+             Periode="Pré-AMMC", Variable="Score RSE"),
+  data.frame(extract_ci(post_r,vcpo_r, "RSE_norm","ROA"),
+             Periode="Post-AMMC", Variable="Score RSE"),
+  data.frame(extract_ci(post_e,vcpo_e, "RSE_norm","ROE"),
+             Periode="Post-AMMC", Variable="Score RSE"),
+  data.frame(extract_ci(post_q,vcpo_q, "RSE_norm","Tobin's Q"),
+             Periode="Post-AMMC", Variable="Score RSE"),
+  data.frame(extract_ci(pre_r, vcp_r,  "cgem","ROA"),
+             Periode="Pré-AMMC", Variable="Label CGEM"),
+  data.frame(extract_ci(pre_oe,vcp_oe, "cgem","ROE"),
+             Periode="Pré-AMMC", Variable="Label CGEM"),
+  data.frame(extract_ci(pre_q, vcp_q,  "cgem","Tobin's Q"),
+             Periode="Pré-AMMC", Variable="Label CGEM"),
+  data.frame(extract_ci(post_r,vcpo_r, "cgem","ROA"),
+             Periode="Post-AMMC", Variable="Label CGEM"),
+  data.frame(extract_ci(post_e,vcpo_e, "cgem","ROE"),
+             Periode="Post-AMMC", Variable="Label CGEM"),
+  data.frame(extract_ci(post_q,vcpo_q, "cgem","Tobin's Q"),
+             Periode="Post-AMMC", Variable="Label CGEM")
+)
+betas$Modele  <- factor(betas$Modele,  levels=c("ROA","ROE","Tobin's Q"))
+betas$Periode <- factor(betas$Periode, levels=c("Pré-AMMC","Post-AMMC"))
+pal2 <- c("Pré-AMMC"=COL_BLUE,"Post-AMMC"=COL_RED)
+
+ggplot(betas, aes(x=Modele, y=Coef, color=Periode)) +
+  geom_hline(yintercept=0, linetype="dashed", color="grey60", linewidth=0.8) +
+  geom_linerange(aes(ymin=Lo95,ymax=Hi95), linewidth=1.2, alpha=0.35,
+                 position=position_dodge(0.4)) +
+  geom_linerange(aes(ymin=Lo90,ymax=Hi90), linewidth=2.5, alpha=0.65,
+                 position=position_dodge(0.4)) +
+  geom_point(size=4, shape=21, fill="white", stroke=2,
+             position=position_dodge(0.4)) +
+  geom_text(aes(label=sprintf("%.4f",Coef)), position=position_dodge(0.4),
+            vjust=-1.4, size=2.9, fontface="bold") +
+  scale_color_manual(values=pal2) +
+  facet_wrap(~Variable, scales="free_y") +
+  labs(title="Coefficients β — Score RSE et Label CGEM par sous-période",
+       subtitle="FE · SE robustes · IC épais=90% · IC fin=95%",
+       x=NULL, y="Coefficient β", color=NULL) +
+  theme_rse + theme(panel.grid.major.x=element_blank())
+```
+
+# Étape 11 — Tableau de synthèse des hypothèses
+
+```{r verdict_fn}
+extract_verdict <- function(model, vc, var_name, hypothese, vd, vi,
+                             expected_sign="+", alpha=0.05) {
+  b  <- tryCatch(coef(model)[var_name], error=function(e) NA_real_)
+  se <- tryCatch(sqrt(vc[var_name,var_name]), error=function(e) NA_real_)
+  if (length(b)==0||length(se)==0||is.na(b)||is.na(se)||se==0)
+    return(data.frame(Hypothese=hypothese,VD=vd,VI=vi,
+      Beta=NA,SE=NA,t=NA,p=NA,Sig="—",Signe_att=expected_sign,
+      Signe_obs="—",Verdict="Non calculable",stringsAsFactors=FALSE))
+  t_val <- b/se; p_val <- 2*pt(-abs(t_val), df=model$df.residual)
+  stars <- case_when(p_val<0.01~"***",p_val<0.05~"**",p_val<0.10~"*",TRUE~"")
+  dir_ok <- (expected_sign=="+"&b>0)|(expected_sign=="-"&b<0)
+  verdict <- case_when(dir_ok&p_val<alpha~"Validée",dir_ok&p_val>=alpha~"Sens ✓ NS",
+                       !dir_ok&p_val<alpha~"Signe inverse",TRUE~"Rejetée")
+  data.frame(Hypothese=hypothese,VD=vd,VI=vi,
+    Beta=round(b,4),SE=round(se,4),t=round(t_val,3),p=round(p_val,4),
+    Sig=stars,Signe_att=expected_sign,Signe_obs=ifelse(b>0,"+","−"),
+    Verdict=verdict, stringsAsFactors=FALSE)
+}
+```
+
+```{r verdict_table, results='asis'}
+
+# ====================== CONSTRUCTION DU TABLEAU DE SYNTHÈSE ======================
+h1_v <- rbind(
+  extract_verdict(fe_roa, vc_roa, "RSE_norm", "H1 RSE→ROA", "ROA", "Score RSE (26 items)"),
+  extract_verdict(fe_roe, vc_roe, "RSE_norm", "H1 RSE→ROE", "ROE", "Score RSE (26 items)"),
+  extract_verdict(fe_toq, vc_toq, "RSE_norm", "H1 RSE→Q", "Tobin's Q", "Score RSE (26 items)")
+)
+
+h2_v <- rbind(
+  extract_verdict(h2a, vc2a, "perf_lag", "H2 ROA(t-1)→RSE", "RSE", "ROA(t-1)"),
+  extract_verdict(h2b, vc2b, "perf_lag", "H2 ROE(t-1)→RSE", "RSE", "ROE(t-1)"),
+  extract_verdict(h2c, vc2c, "perf_lag", "H2 Q(t-1)→RSE", "RSE", "Q(t-1)")
+)
+
+h3_v <- rbind(
+  extract_verdict(h3a, vc3a, "inter", "H3 RSE×Taille→ROA", "ROA", "RSE_c×Size_c"),
+  extract_verdict(h3b, vc3b, "inter", "H3 RSE×Taille→ROE", "ROE", "RSE_c×Size_c"),
+  extract_verdict(h3c, vc3c, "inter", "H3 RSE×Taille→Q", "Tobin's Q", "RSE_c×Size_c")
+)
+
+# Label CGEM (informatif)
+cgem_v <- rbind(
+  extract_verdict(fe_roa, vc_roa, "cgem", "Label CGEM→ROA", "ROA", "Label CGEM"),
+  extract_verdict(fe_roe, vc_roe, "cgem", "Label CGEM→ROE", "ROE", "Label CGEM"),
+  extract_verdict(fe_toq, vc_toq, "cgem", "Label CGEM→Q", "Tobin's Q", "Label CGEM")
+)
+
+# Combinaison finale
+all_v <- rbind(h1_v, h2_v, h3_v, cgem_v)
+
+# Couleurs pour la colonne Verdict
+v_col <- case_when(
+  all_v$Verdict == "Validée" ~ "#1E8449",
+  all_v$Verdict == "Sens ✓ NS" ~ "#D35400",
+  TRUE ~ "#C0392B"
+)
+
+# ====================== AFFICHAGE DU TABLEAU ======================
+kable(all_v[, c("Hypothese", "VD", "VI", "Beta", "SE", "t", "p", "Sig",
+                "Signe_att", "Signe_obs", "Verdict")],
+      caption = "Tableau de synthèse — H1, H2, H3 et effet Label CGEM (informatif)",
+      col.names = c("Hypothèse", "VD", "VI", "β", "SE rob.", "t", "p-val.",
+                    "Sig.", "Signe att.", "Signe obs.", "Verdict"),
+      row.names = FALSE,
+      align = c("l", "l", "l", "r", "r", "r", "r", "c", "c", "c", "l")) |>
+  
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = TRUE, 
+                font_size = 11) |>
+  
+  pack_rows("H1 — Impact RSE → Performance (26 items)", 1, 3,
+            bold = TRUE, background = "#D6EAF8") |>
+  pack_rows("H2 — Performance passée → RSE", 4, 6,
+            bold = TRUE, background = "#D5F5E3") |>
+  pack_rows("H3 — Modération par la taille", 7, 9,
+            bold = TRUE, background = "#FDEBD0") |>
+  pack_rows("Label CGEM — Effet du signal institutionnel (informatif)", 10, 12,
+            bold = TRUE, background = "#F9EBEA") |>
+  
+  # Correction ici :
+  column_spec(11, color = v_col, bold = TRUE) |>                    # Verdict
+  column_spec(7, bold = ifelse(is.na(all_v$p), FALSE, all_v$p < 0.05)) |>  # p-value
+  
+  footnote(general = paste0(
+    "Modèles à effets fixes (entité). ",
+    "Erreurs standards robustes clusterisées par firme (Arellano, 1987). ",
+    "Score RSE : 26 items (E8 retiré). ",
+    "Validée = signe attendu ET significatif (p < 0.05). ",
+    "* p<0.10 ; ** p<0.05 ; *** p<0.01."),
+    general_title = "Note :",
+    footnote_as_chunk = TRUE)
+```
+
+---
+*Master Finance Appliquée (Finance Durable) · FSJESO · Université Cadi Ayyad · Marrakech*
+*Encadrants : Pr. Salah Eddine Kartobi · Pr. Zineb Elhachimi*
